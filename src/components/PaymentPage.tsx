@@ -20,7 +20,7 @@ declare global {
 const PaymentPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const venueId = parseInt(searchParams.get('venue') || '1');
+  const venueId = searchParams.get('venue') || '123e4567-e89b-12d3-a456-426614174000';
   const venue = venuesData.find((v) => v.id === venueId);
   const [selectedDate, setSelectedDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -82,15 +82,17 @@ const PaymentPage = () => {
     setError(null);
 
     try {
-      // Generate a UUID for the booking
+      // Generate UUIDs for booking and slot
       const bookingId = crypto.randomUUID();
+      const slotId = crypto.randomUUID();
 
       // Create booking in Supabase
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
-          id: bookingId, // Use the generated UUID
-          venue_id: bookingId, // Use a UUID instead of numeric ID
+          id: bookingId,
+          venue_id: venueId,
+          slot_id: slotId,
           booking_date: selectedDate,
           booking_name: formData.bookingName,
           persons: parseInt(formData.persons),
@@ -107,14 +109,13 @@ const PaymentPage = () => {
       // Initialize Razorpay
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: advanceAmount * 100, // Amount in paise
+        amount: advanceAmount * 100,
         currency: 'INR',
         name: 'Binge\'N Celebration',
         description: `Booking for ${venue.name}`,
         image: '/BINGEN.png',
         order_id: booking.id,
         handler: async (response: any) => {
-          // Update booking with payment status
           const { error: updateError } = await supabase
             .from('bookings')
             .update({
@@ -124,8 +125,6 @@ const PaymentPage = () => {
             .eq('id', booking.id);
 
           if (updateError) throw updateError;
-
-          // Redirect to success page
           navigate('/booking-success');
         },
         prefill: {
